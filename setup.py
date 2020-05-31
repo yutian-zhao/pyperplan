@@ -26,11 +26,11 @@ setup(
     license="GPL3+",
     packages=find_packages("src", exclude=["tests"]),
     package_dir={"": "src"},
-    py_modules=[
-        os.path.splitext(os.path.basename(path))[0] for path in glob("src/*.py")
-    ],
+    # py_modules=[
+    #     os.path.splitext(os.path.basename(path))[0] for path in glob("src/*.py")
+    # ],
     include_package_data=True,
-    entry_points={"console_scripts": ["pyperplan = pyperplan:main"]},
+    # entry_points={"console_scripts": ["pyperplan = pyperplan:main"]},
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Environment :: Console",
