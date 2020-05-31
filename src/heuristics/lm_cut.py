@@ -382,3 +382,6 @@ class LmCutHeuristic(Heuristic):
             return float("inf")
         else:
             return heuristic_value
+
+    def __repr__(self):
+        return "LmCutHeuristic"

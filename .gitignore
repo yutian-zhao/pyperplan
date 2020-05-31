@@ -4,3 +4,5 @@
 build/
 dist/
 src/pyperplan.egg-info/
+
+.idea/

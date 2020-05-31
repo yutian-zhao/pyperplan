@@ -21,10 +21,13 @@ Implements the A* (a-star) and weighted A* search algorithm.
 
 import heapq
 import logging
+import time
 
 from search import searchspace
 from task import Task
+from search.metrics import SearchMetrics, SearchState
 
+_log = logging.getLogger(__name__)
 
 def ordered_node_astar(node, h, node_tiebreaker):
     """
@@ -112,7 +115,11 @@ def weighted_astar_search(task, heuristic, weight=5, use_relaxed_plan=False):
 
 
 def astar_search(
-    task, heuristic, make_open_entry=ordered_node_astar, use_relaxed_plan=False
+    task,
+    heuristic,
+    make_open_entry=ordered_node_astar,
+    use_relaxed_plan=False,
+    max_search_time=float("inf"),
 ):
     """
     Searches for a plan in the given task using A* search.
@@ -126,6 +133,7 @@ def astar_search(
                            ordered_node_weighted_astar and
                            ordered_node_greedy_best_first with obvious
                            meanings.
+    @param max_search_time Maximum search time in seconds
     """
     open = []
     state_cost = {task.initial_state: 0}
@@ -134,19 +142,42 @@ def astar_search(
     root = searchspace.make_root_node(task.initial_state)
     init_h = heuristic(root)
     heapq.heappush(open, make_open_entry(root, init_h, node_tiebreaker))
-    logging.info("Initial h value: %f" % init_h)
+    _log.info("Initial h value: %f" % init_h)
 
     besth = float("inf")
     counter = 0
     expansions = 0
 
+    # Number of heuristic calls, include the initial call for root note
+    heuristic_calls = 1
+
+    # Used so we can interrupt the search
+    start_time = time.perf_counter()
+
     while open:
+        # Check whether max search time exceeded
+        elapsed_time = time.perf_counter() - start_time
+        if elapsed_time >= max_search_time:
+            metrics = SearchMetrics(
+                nodes_expanded=expansions,
+                plan_length=-1,
+                heuristic_calls=heuristic_calls,
+                heuristic_val_for_initial_state=init_h,
+                search_time=elapsed_time,
+                search_state=SearchState.timed_out,
+            )
+            _log.warning("Search timed out")
+            _log.info("%d Nodes expanded" % expansions)
+            _log.info("%d times heuristic called" % heuristic_calls)
+            return [], metrics
+
         (f, h, _tie, pop_node) = heapq.heappop(open)
         if h < besth:
             besth = h
-            logging.debug("Found new best h: %d after %d expansions" % (besth, counter))
+            _log.debug("Found new best h: %d after %d expansions" % (besth, counter))
 
         pop_state = pop_node.state
+
         # Only expand the node if its associated cost (g value) is the lowest
         # cost known for this state. Otherwise we already found a cheaper
         # path after creating this node and hence can disregard it.
@@ -154,36 +185,53 @@ def astar_search(
             expansions += 1
 
             if task.goal_reached(pop_state):
-                logging.info("Goal reached. Start extraction of solution.")
-                logging.info("%d Nodes expanded" % expansions)
-                return pop_node.extract_solution()
+                _log.info("Goal reached. Start extraction of solution.")
+                _log.info("%d Nodes expanded" % expansions)
+                _log.info("%d times heuristic called" % heuristic_calls)
+                sol = pop_node.extract_solution()
+
+                # Create metrics
+                metrics = SearchMetrics(
+                    nodes_expanded=expansions,
+                    plan_length=len(sol),
+                    heuristic_calls=heuristic_calls,
+                    heuristic_val_for_initial_state=init_h,
+                    search_time=time.perf_counter() - start_time,
+                    search_state=SearchState.success,
+                )
+                return sol, metrics
+
             rplan = None
             if use_relaxed_plan:
                 (rh, rplan) = heuristic.calc_h_with_plan(
                     searchspace.make_root_node(pop_state)
                 )
-                logging.debug("relaxed plan %s " % rplan)
+                _log.debug("relaxed plan %s " % rplan)
 
             for op, succ_state in task.get_successor_states(pop_state):
                 if use_relaxed_plan:
                     if rplan and not op.name in rplan:
                         # ignore this operator if we use the relaxed plan
                         # criterion
-                        logging.debug(
+                        _log.debug(
                             "removing operator %s << not a "
                             "preferred operator" % op.name
                         )
                         continue
                     else:
-                        logging.debug("keeping operator %s" % op.name)
+                        _log.debug("keeping operator %s" % op.name)
 
                 succ_node = searchspace.make_child_node(pop_node, op, succ_state)
-                h = heuristic(succ_node)
-                if h == float("inf"):
-                    # don't bother with states that can't reach the goal anyway
-                    continue
+
                 old_succ_g = state_cost.get(succ_state, float("inf"))
                 if succ_node.g < old_succ_g:
+                    h = heuristic(succ_node)
+                    heuristic_calls += 1
+
+                    if h == float("inf"):
+                        # don't bother with states that can't reach the goal anyway
+                        continue
+
                     # We either never saw succ_state before, or we found a
                     # cheaper path to succ_state than previously.
                     node_tiebreaker += 1
@@ -191,6 +239,16 @@ def astar_search(
                     state_cost[succ_state] = succ_node.g
 
         counter += 1
-    logging.info("No operators left. Task unsolvable.")
-    logging.info("%d Nodes expanded" % expansions)
-    return None
+    _log.info("No operators left. Task unsolvable.")
+    _log.info("%d Nodes expanded" % expansions)
+
+    # Create metrics
+    metrics = SearchMetrics(
+        nodes_expanded=expansions,
+        plan_length=-1,
+        heuristic_calls=heuristic_calls,
+        heuristic_val_for_initial_state=init_h,
+        search_time=time.perf_counter() - start_time,
+        search_state=SearchState.failed,
+    )
+    return None, metrics

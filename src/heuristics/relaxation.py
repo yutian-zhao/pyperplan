@@ -289,6 +289,8 @@ class hAddHeuristic(_RelaxationHeuristic):
         super().__init__(task)
         self.eval = sum
 
+    def __repr__(self):
+        return "hAddHeuristic"
 
 class hMaxHeuristic(_RelaxationHeuristic):
     """This class is an implementation of the hMax heuristic.
@@ -304,6 +306,8 @@ class hMaxHeuristic(_RelaxationHeuristic):
         super().__init__(task)
         self.eval = max
 
+    def __repr__(self):
+        return "hMaxHeuristic"
 
 class hSAHeuristic(_RelaxationHeuristic):
     """This class is an implementation of the hSA heuristic.
@@ -459,3 +463,6 @@ class hFFHeuristic(_RelaxationHeuristic):
                 return float("inf"), None
             else:
                 return float("inf")
+
+    def __repr__(self):
+        return "hFFHeuristic"

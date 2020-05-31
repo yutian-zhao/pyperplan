@@ -105,3 +105,6 @@ class LandmarkHeuristic(Heuristic):
 
         h = sum(self.costs[landmark] for landmark in unreached)
         return h
+
+    def __repr__(self):
+        return "LandmarkHeuristic"

@@ -31,6 +31,7 @@ from task import Operator, Task
 # controls mass log output
 verbose_logging = False
 
+_log = logging.getLogger(__name__)
 
 def ground(problem):
     """
@@ -58,27 +59,27 @@ def ground(problem):
     objects = problem.objects
     objects.update(domain.constants)
     if verbose_logging:
-        logging.debug("Objects:\n%s" % objects)
+        _log.debug('Objects:\n%s' % objects)
 
     # Get the names of the static predicates
     statics = _get_statics(predicates, actions)
     if verbose_logging:
-        logging.debug("Static predicates:\n%s" % statics)
+        _log.debug("Static predicates:\n%s" % statics)
 
     # Create a map from types to objects
     type_map = _create_type_map(objects)
     if verbose_logging:
-        logging.debug("Type to object map:\n%s" % type_map)
+        _log.debug("Type to object map:\n%s" % type_map)
 
     # Transform initial state into a specific
     init = _get_partial_state(problem.initial_state)
     if verbose_logging:
-        logging.debug("Initial state with statics:\n%s" % init)
+        _log.debug("Initial state with statics:\n%s" % init)
 
     # Ground actions
     operators = _ground_actions(actions, type_map, statics, init)
     if verbose_logging:
-        logging.debug("Operators:\n%s" % "\n".join(map(str, operators)))
+        _log.debug("Operators:\n%s" % "\n".join(map(str, operators)))
 
     # Ground goal
     # TODO: Remove facts that can only become true and are true in the
@@ -87,17 +88,17 @@ def ground(problem):
     #       only become false and is false in the initial state
     goals = _get_partial_state(problem.goal)
     if verbose_logging:
-        logging.debug("Goal:\n%s" % goals)
+        _log.debug("Goal:\n%s" % goals)
 
     # Collect facts from operators and include the ones from the goal
     facts = _collect_facts(operators) | goals
     if verbose_logging:
-        logging.debug("All grounded facts:\n%s" % facts)
+        _log.debug("All grounded facts:\n%s" % facts)
 
     # Remove statics from initial state
     init &= facts
     if verbose_logging:
-        logging.debug("Initial state without statics:\n%s" % init)
+        _log.debug("Initial state without statics:\n%s" % init)
 
     # perform relevance analysis
     operators = _relevance_analysis(operators, goals)
@@ -150,10 +151,10 @@ def _relevance_analysis(operators, goals):
         op.del_effects = new_dellist
         if not new_addlist and not new_dellist:
             if verbose_logging:
-                logging.debug("Relevance analysis removed oparator %s" % op.name)
+                _log.debug("Relevance analysis removed oparator %s" % op.name)
             del_operators.add(op)
     if debug:
-        logging.info("Relevance analysis removed %d facts" % len(debug_pruned_op))
+        _log.info("Relevance analysis removed %d facts" % len(debug_pruned_op))
     # remove completely irrelevant operators
     return [op for op in operators if not op in del_operators]
 
@@ -257,7 +258,7 @@ def _ground_action(action, type_map, statics, init):
     """
     Ground the action and return the resulting list of operators.
     """
-    logging.debug("Grounding %s" % action.name)
+    _log.debug("Grounding %s" % action.name)
     param_to_objects = {}
 
     for param_name, param_types in action.signature:
@@ -290,7 +291,7 @@ def _ground_action(action, type_map, statics, init):
                                 remove_debug += 1
                             objects.remove(o)
     if verbose_logging:
-        logging.info(
+        _log.info(
             "Static precondition analysis removed %d possible objects" % remove_debug
         )
 
