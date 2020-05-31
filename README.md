@@ -1,3 +1,14 @@
+Modification of Pyperplan so it can be used with STRIPS-HGN. Includes:
+- Minor optimisation to A* search
+- Making Pyperplan importable as a module
+
+The `run_pyperplan.py` script runs Pyperplan and was previously `pyperplan.py`.
+
+You can install Pyperplan using `pip install .` in the main directory once
+you have cloned the repo.
+
+___
+
 **Pyperplan** is a lightweight STRIPS planner written in Python.
 
 Please note that Pyperplan deliberately prefers clean code over fast
