@@ -120,6 +120,7 @@ def astar_search(
     make_open_entry=ordered_node_astar,
     use_relaxed_plan=False,
     max_search_time=float("inf"),
+    all=False
 ):
     """
     Searches for a plan in the given task using A* search.
@@ -138,6 +139,8 @@ def astar_search(
     open = []
     state_cost = {task.initial_state: 0}
     node_tiebreaker = 0
+
+    all_paths = [] # edited
 
     root = searchspace.make_root_node(task.initial_state)
     init_h = heuristic(root)
@@ -184,6 +187,10 @@ def astar_search(
         if state_cost[pop_state] == pop_node.g:
             expansions += 1
 
+            # If asked to find all paths, collect paths when dequeuing.
+            if all:
+                all_paths.append(pop_node.extract_solution())
+
             if task.goal_reached(pop_state):
                 _log.info("Goal reached. Start extraction of solution.")
                 _log.info("%d Nodes expanded" % expansions)
@@ -199,7 +206,10 @@ def astar_search(
                     search_time=time.perf_counter() - start_time,
                     search_state=SearchState.success,
                 )
-                return sol, metrics
+                if all:
+                    return all_paths, metrics # edited
+                else:
+                    return sol, metrics                
 
             rplan = None
             if use_relaxed_plan:
