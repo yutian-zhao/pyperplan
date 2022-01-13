@@ -27,6 +27,8 @@ from pyperplan.search import searchspace
 from pyperplan.task import Task
 from pyperplan.search.metrics import SearchMetrics, SearchState
 
+import os
+
 _log = logging.getLogger(__name__)
 
 def ordered_node_astar(node, h, node_tiebreaker):
@@ -120,7 +122,8 @@ def astar_search(
     make_open_entry=ordered_node_astar,
     use_relaxed_plan=False,
     max_search_time=float("inf"),
-    all=False
+    all=False,
+    heuristic_models = None,
 ):
     """
     Searches for a plan in the given task using A* search.
@@ -140,8 +143,11 @@ def astar_search(
     state_cost = {task.initial_state: 0}
     node_tiebreaker = 0
 
-    all_paths = [] # edited
-
+    if heuristic_models:
+        compare_list = []
+    if all:
+        all_paths = []
+    
     root = searchspace.make_root_node(task.initial_state)
     init_h = heuristic(root)
     heapq.heappush(open, make_open_entry(root, init_h, node_tiebreaker))
@@ -172,6 +178,10 @@ def astar_search(
             _log.warning("Search timed out")
             _log.info("%d Nodes expanded" % expansions)
             _log.info("%d times heuristic called" % heuristic_calls)
+
+            if heuristic_models:
+                return compare_list, metrics
+
             return [], metrics
 
         (f, h, _tie, pop_node) = heapq.heappop(open)
@@ -195,6 +205,7 @@ def astar_search(
                 _log.info("Goal reached. Start extraction of solution.")
                 _log.info("%d Nodes expanded" % expansions)
                 _log.info("%d times heuristic called" % heuristic_calls)
+                _log.info("solution: {}".format(pop_node.extract_solution())) # test
                 sol = pop_node.extract_solution()
 
                 # Create metrics
@@ -206,6 +217,10 @@ def astar_search(
                     search_time=time.perf_counter() - start_time,
                     search_state=SearchState.success,
                 )
+                # test
+                if heuristic_models:
+                    print(sol)
+                    return compare_list, metrics
                 if all:
                     return all_paths, metrics # edited
                 else:
@@ -217,6 +232,11 @@ def astar_search(
                     searchspace.make_root_node(pop_state)
                 )
                 _log.debug("relaxed plan %s " % rplan)
+
+            if heuristic_models:
+                heuristics=["gripper_ori_90", "gripper_all_90", "gripper_all_180"]
+                states_and_hs = [[] for i in range(len(heuristics)+2)] # test
+                states_and_hs.append(pop_node.action.name if pop_node.action else '')
 
             for op, succ_state in task.get_successor_states(pop_state):
                 if use_relaxed_plan:
@@ -247,6 +267,19 @@ def astar_search(
                     node_tiebreaker += 1
                     heapq.heappush(open, make_open_entry(succ_node, h, node_tiebreaker))
                     state_cost[succ_state] = succ_node.g
+
+                    if heuristic_models:
+                        # heuristics=["gripper_ori_90", "gripper_all_90", "gripper_all_180"]
+                        # checkpoints = [os.path.join("../results/", path, "model-best.ckpt") for path in heuristics] 
+                        # heuristic_models = [model_to_heuristics(checkpoint, problem)for checkpoint in checkpoints]
+                        states_and_hs[0].append(op.name)
+                        states_and_hs[1].append(h+succ_node.g)
+                        for idx, heuristic_model in enumerate(heuristic_models):
+                            states_and_hs[idx+2].append(heuristic_model(succ_node)+succ_node.g)
+
+            if heuristic_models:
+                # if len(states_and_hs[0])!=0:
+                compare_list.append(states_and_hs)
 
         counter += 1
     _log.info("No operators left. Task unsolvable.")
