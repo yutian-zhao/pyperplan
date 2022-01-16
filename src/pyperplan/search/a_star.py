@@ -124,6 +124,7 @@ def astar_search(
     max_search_time=float("inf"),
     all=False,
     heuristic_models = None,
+    use_novelty=False,
 ):
     """
     Searches for a plan in the given task using A* search.
@@ -143,15 +144,23 @@ def astar_search(
     state_cost = {task.initial_state: 0}
     node_tiebreaker = 0
 
-    if heuristic_models:
-        compare_list = []
-    if all:
-        all_paths = []
-    
     root = searchspace.make_root_node(task.initial_state)
     init_h = heuristic(root)
     heapq.heappush(open, make_open_entry(root, init_h, node_tiebreaker))
     _log.info("Initial h value: %f" % init_h)
+
+    if heuristic_models:
+        compare_list = []
+    if all:
+        all_paths = []
+    if use_novelty:
+        novel_paths = []
+        num_novelty_1 = 0
+        num_novelty_2 = 0
+        num_novelty_inf = 0
+        single_tuples = set(task.initial_state)
+        double_tuples = set([frozenset([atom1, atom2]) for atom1 in task.initial_state 
+                        for atom2 in task.initial_state if atom1 != atom2])
 
     besth = float("inf")
     counter = 0
@@ -181,8 +190,14 @@ def astar_search(
 
             if heuristic_models:
                 return compare_list, metrics
-
-            return [], metrics
+            elif all:
+                return all_paths, metrics
+            elif use_novelty:
+                print("total number: ", num_novelty_1+num_novelty_2+num_novelty_inf, 
+                    'novelty 1: ', num_novelty_1, 'novelty 2: ', num_novelty_2, 'novelty inf: ', num_novelty_inf)
+                return novel_paths, metrics
+            else:
+                return [], metrics
 
         (f, h, _tie, pop_node) = heapq.heappop(open)
         if h < besth:
@@ -200,6 +215,16 @@ def astar_search(
             # If asked to find all paths, collect paths when dequeuing.
             if all:
                 all_paths.append(pop_node.extract_solution())
+            if use_novelty:
+                single_tuples, double_tuples, novelty = searchspace.compute_novelty(single_tuples, double_tuples, pop_state)
+                if novelty==1:
+                    num_novelty_1+=1
+                    novel_paths.append(pop_node.extract_solution())
+                elif novelty==2:
+                    num_novelty_2+=1
+                    novel_paths.append(pop_node.extract_solution())
+                else:
+                    num_novelty_inf+=1
 
             if task.goal_reached(pop_state):
                 _log.info("Goal reached. Start extraction of solution.")
@@ -221,8 +246,12 @@ def astar_search(
                 if heuristic_models:
                     print(sol)
                     return compare_list, metrics
-                if all:
-                    return all_paths, metrics # edited
+                elif all:
+                    return all_paths, metrics
+                elif use_novelty:
+                    print("total number: ", num_novelty_1+num_novelty_2+num_novelty_inf, 
+                        'novelty 1: ', num_novelty_1, 'novelty 2: ', num_novelty_2, 'novelty inf: ', num_novelty_inf)
+                    return novel_paths, metrics
                 else:
                     return sol, metrics                
 

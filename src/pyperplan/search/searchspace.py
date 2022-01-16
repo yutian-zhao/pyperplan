@@ -74,3 +74,37 @@ def make_child_node(parent_node, action, state):
     The g-value is set to the parents g-value + 1.
     """
     return SearchNode(state, parent_node, action, parent_node.g + 1)
+
+def compute_novelty(single_tuples, double_tuples, state):
+    """
+    This function only compute novelty up to 2. 
+
+    @param single_tuples: frozen set of previous visited facts.
+    @param double_tuples: frozen set of previous visited tuples of facts of length 2.
+    @param state: the state to be compute novelty of.
+    """
+    flag1 = False # flag of novelty 1
+    flag2 = False # flag of novelty 1
+
+    for atom in state:
+        if atom not in single_tuples:
+            single_tuples.add(atom)
+            if not flag1:
+                flag1 = True
+
+    for atom1 in state:
+        for atom2 in state:
+            if atom1 != atom2:
+                double_tuple = frozenset([atom1, atom2])
+                if double_tuple not in double_tuples:
+                    double_tuples.add(double_tuple)
+                    if not flag2:
+                        flag2 = True
+    
+    if flag1:
+        return single_tuples, double_tuples, 1
+    elif flag2:
+        return single_tuples, double_tuples, 2
+    else:
+        return single_tuples, double_tuples, float('inf')
+
