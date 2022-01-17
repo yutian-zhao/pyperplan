@@ -28,7 +28,7 @@ from pyperplan.search import searchspace
 import time
 
 
-def breadth_first_search(planning_task, max_search_time=float("inf"), all=False, use_novelty=False,):
+def breadth_first_search(planning_task, max_search_time=float("inf"), mode=['solution']):
     """
     Searches for a plan on the given task using breadth first search and
     duplicate detection.
@@ -45,16 +45,16 @@ def breadth_first_search(planning_task, max_search_time=float("inf"), all=False,
     # set storing the explored nodes, used for duplicate detection
     closed = {planning_task.initial_state}
 
-    if all:
-        all_paths = []
-    if use_novelty:
-        novel_paths = []
+    if 'all' in mode:
+        all_pairs = []
+    if 'novel' in mode:
+        novel_pairs = []
         num_novelty_1 = 0
         num_novelty_2 = 0
         num_novelty_inf = 0
-        single_tuples = set(planning_task.initial_state)
-        double_tuples = set([frozenset([atom1, atom2]) for atom1 in planning_task.initial_state 
-                        for atom2 in planning_task.initial_state if atom1 != atom2])
+        single_tuples = set()
+        double_tuples = set()
+    remove_trivial = 'nontrivial' in mode
 
     start_time = time.perf_counter()
 
@@ -63,12 +63,12 @@ def breadth_first_search(planning_task, max_search_time=float("inf"), all=False,
         if elapsed_time >= max_search_time:
             logging.info("Search timed out")
             logging.info("search_time: %d" % elapsed_time)
-            if all:
-                return all_paths
-            if use_novelty:
+            if 'all' in mode:
+                return all_pairs
+            elif 'novel' in mode:
                 print("total number: ", num_novelty_1+num_novelty_2+num_novelty_inf, 
                     'novelty 1: ', num_novelty_1, 'novelty 2: ', num_novelty_2, 'novelty inf: ', num_novelty_inf)
-                return novel_paths
+                return novel_pairs
             else:
                 return None
 
@@ -80,17 +80,17 @@ def breadth_first_search(planning_task, max_search_time=float("inf"), all=False,
         # get the next node to explore
         node = queue.popleft()
 
-        if all:
-            all_paths.append(node.extract_solution())
-        if use_novelty:
+        if 'all' in mode:
+            all_pairs+=node.extract_state_value_pairs(remove_trivial=remove_trivial)
+        if 'novel' in mode:
             pop_state = node.state
             single_tuples, double_tuples, novelty = searchspace.compute_novelty(single_tuples, double_tuples, pop_state)
             if novelty==1:
                 num_novelty_1+=1
-                novel_paths.append(node.extract_solution())
+                novel_pairs+=node.extract_state_value_pairs(remove_trivial=remove_trivial)
             elif novelty==2:
                 num_novelty_2+=1
-                novel_paths.append(node.extract_solution())
+                novel_pairs+=node.extract_state_value_pairs(remove_trivial=remove_trivial)
             else:
                 num_novelty_inf+=1
 
@@ -99,14 +99,14 @@ def breadth_first_search(planning_task, max_search_time=float("inf"), all=False,
             logging.info("Goal reached. Start extraction of solution.")
             logging.info("%d Nodes expanded" % iteration)
             logging.info("search_time: %d" % (time.perf_counter() - start_time))
-            if all:
-                return all_paths
-            if use_novelty:
+            if 'all' in mode:
+                return all_pairs
+            elif 'novel' in mode:
                 print("total number: ", num_novelty_1+num_novelty_2+num_novelty_inf, 
                     'novelty 1: ', num_novelty_1, 'novelty 2: ', num_novelty_2, 'novelty inf: ', num_novelty_inf)
-                return novel_paths
+                return novel_pairs
             else:
-                return node.extract_solution()
+                return node.extract_state_value_pairs(remove_trivial=remove_trivial)
                 
         for operator, successor_state in planning_task.get_successor_states(node.state):
             # duplicate detection

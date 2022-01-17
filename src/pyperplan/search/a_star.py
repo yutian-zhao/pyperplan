@@ -122,12 +122,12 @@ def astar_search(
     make_open_entry=ordered_node_astar,
     use_relaxed_plan=False,
     max_search_time=float("inf"),
-    all=False,
     heuristic_models = None,
-    use_novelty=False,
+    remove_trivial = False,
+    mode=['solution'],
 ):
     """
-    Searches for a plan in the given task using A* search.
+    Searches for a plan in the given task using A* search. This function will return a list of state value pairs.
 
     @param task The task to be solved
     @param heuristic  A heuristic callable which computes the estimated steps
@@ -139,6 +139,12 @@ def astar_search(
                            ordered_node_greedy_best_first with obvious
                            meanings.
     @param max_search_time Maximum search time in seconds
+    @param heuristic_models Heuristics to be evaluated.
+    @param mode State value collecting mode.
+                'solution' collects ((state, goal), value) pairs along the solution path.
+                'all' collects all ((state, state), value) pairs. 
+                'novel' collects ((start, novel state), value) pairs.
+                'nontrivial' whether remove pairs with value less than 2.
     """
     open = []
     state_cost = {task.initial_state: 0}
@@ -151,16 +157,16 @@ def astar_search(
 
     if heuristic_models:
         compare_list = []
-    if all:
-        all_paths = []
-    if use_novelty:
-        novel_paths = []
+    if 'all' in mode:
+        all_pairs = []
+    if 'novel' in mode:
+        novel_pairs = []
         num_novelty_1 = 0
         num_novelty_2 = 0
         num_novelty_inf = 0
-        single_tuples = set(task.initial_state)
-        double_tuples = set([frozenset([atom1, atom2]) for atom1 in task.initial_state 
-                        for atom2 in task.initial_state if atom1 != atom2])
+        single_tuples = set()
+        double_tuples = set() # initial state is added to the queue first.
+    remove_trivial = 'nontrivial' in mode
 
     besth = float("inf")
     counter = 0
@@ -190,12 +196,12 @@ def astar_search(
 
             if heuristic_models:
                 return compare_list, metrics
-            elif all:
-                return all_paths, metrics
-            elif use_novelty:
+            elif 'all' in mode:
+                return all_pairs, metrics
+            elif 'novel' in mode:
                 print("total number: ", num_novelty_1+num_novelty_2+num_novelty_inf, 
                     'novelty 1: ', num_novelty_1, 'novelty 2: ', num_novelty_2, 'novelty inf: ', num_novelty_inf)
-                return novel_paths, metrics
+                return novel_pairs, metrics
             else:
                 return [], metrics
 
@@ -213,16 +219,16 @@ def astar_search(
             expansions += 1
 
             # If asked to find all paths, collect paths when dequeuing.
-            if all:
-                all_paths.append(pop_node.extract_solution())
-            if use_novelty:
+            if 'all' in mode:
+                all_pairs+=pop_node.extract_state_value_pairs(remove_trivial=remove_trivial)
+            if 'novel' in mode:
                 single_tuples, double_tuples, novelty = searchspace.compute_novelty(single_tuples, double_tuples, pop_state)
                 if novelty==1:
                     num_novelty_1+=1
-                    novel_paths.append(pop_node.extract_solution())
+                    novel_pairs+=pop_node.extract_state_value_pairs(remove_trivial=remove_trivial)
                 elif novelty==2:
                     num_novelty_2+=1
-                    novel_paths.append(pop_node.extract_solution())
+                    novel_pairs+=pop_node.extract_state_value_pairs(remove_trivial=remove_trivial)
                 else:
                     num_novelty_inf+=1
 
@@ -230,8 +236,9 @@ def astar_search(
                 _log.info("Goal reached. Start extraction of solution.")
                 _log.info("%d Nodes expanded" % expansions)
                 _log.info("%d times heuristic called" % heuristic_calls)
-                _log.info("solution: {}".format(pop_node.extract_solution())) # test
+                # _log.info("solution: {}".format(pop_node.extract_solution()))
                 sol = pop_node.extract_solution()
+                _log.info("Solution length: {} actions.".format(len(sol)))
 
                 # Create metrics
                 metrics = SearchMetrics(
@@ -242,18 +249,18 @@ def astar_search(
                     search_time=time.perf_counter() - start_time,
                     search_state=SearchState.success,
                 )
-                # test
+
                 if heuristic_models:
                     print(sol)
                     return compare_list, metrics
-                elif all:
-                    return all_paths, metrics
-                elif use_novelty:
+                elif 'all' in mode:
+                    return all_pairs, metrics
+                elif 'novel' in mode:
                     print("total number: ", num_novelty_1+num_novelty_2+num_novelty_inf, 
                         'novelty 1: ', num_novelty_1, 'novelty 2: ', num_novelty_2, 'novelty inf: ', num_novelty_inf)
-                    return novel_paths, metrics
+                    return novel_pairs, metrics
                 else:
-                    return sol, metrics                
+                    return pop_node.extract_state_value_pairs(remove_trivial=remove_trivial), metrics                
 
             rplan = None
             if use_relaxed_plan:
@@ -263,9 +270,8 @@ def astar_search(
                 _log.debug("relaxed plan %s " % rplan)
 
             if heuristic_models:
-                heuristics=["gripper_ori_90", "gripper_all_90", "gripper_all_180"]
-                states_and_hs = [[] for i in range(len(heuristics)+2)] # test
-                states_and_hs.append(pop_node.action.name if pop_node.action else '')
+                states_and_hs = [[] for i in range(len(heuristic_models)+2)]
+                states_and_hs.append(pop_node.action.name if pop_node.action else '') # The action which produced the state.
 
             for op, succ_state in task.get_successor_states(pop_state):
                 if use_relaxed_plan:

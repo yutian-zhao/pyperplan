@@ -55,6 +55,25 @@ class SearchNode:
         solution.reverse()
         return solution
 
+    def extract_state_value_pairs(self, remove_trivial = False):
+        """
+        Returns the list of actions that were applied from the initial node to
+        the goal node.
+        """
+        goal_state = self.state
+        state_value_pairs = []
+        value = 0
+        while self is not None:
+            if remove_trivial:
+                if value >= 2:
+                    state_value_pairs.append((self.state, goal_state, value))
+            else:
+                state_value_pairs.append((self.state, goal_state, value))
+            value += 1
+            self = self.parent
+        state_value_pairs.reverse()
+        return state_value_pairs
+
 
 def make_root_node(initial_state):
     """
