@@ -28,7 +28,7 @@ class SearchNode:
     the node and the path length in the count of applied operators.
     """
 
-    def __init__(self, state, parent, action, g):
+    def __init__(self, state, parent, action, g, novel_parent=None):
         """
         Construct a search node
 
@@ -42,6 +42,8 @@ class SearchNode:
         self.parent = parent
         self.action = action
         self.g = g
+        self.novelty = None
+        self.novel_set = None
 
     def extract_solution(self):
         """
@@ -55,23 +57,25 @@ class SearchNode:
         solution.reverse()
         return solution
 
-    def extract_state_value_pairs(self, remove_trivial = False):
+    def extract_state_value_pairs(self, distance=0, novel=False, lifted=False):
         """
         Returns the list of actions that were applied from the initial node to
         the goal node.
         """
-        goal_state = self.state
+        if novel and self.novelty>2:
+            return []
+        
+        goal_state = self.novel_set if lifted and novel else self.state
         state_value_pairs = []
         value = 0
+        g = self.g
         while self is not None:
-            if remove_trivial:
-                if value >= 2:
+            if ((novel and self.novelty<=1) or not novel) and (value>=distance):
                     state_value_pairs.append((self.state, goal_state, value))
-            else:
-                state_value_pairs.append((self.state, goal_state, value))
             value += 1
             self = self.parent
         state_value_pairs.reverse()
+        print('{}/{}={}'.format(len(state_value_pairs), g+1, len(state_value_pairs)/(g+1)))
         return state_value_pairs
 
 
@@ -104,10 +108,13 @@ def compute_novelty(single_tuples, double_tuples, state):
     """
     flag1 = False # flag of novelty 1
     flag2 = False # flag of novelty 1
+    novel_atoms = set()
+    novel_atom_tuples = set()
 
     for atom in state:
         if atom not in single_tuples:
             single_tuples.add(atom)
+            novel_atoms.add(atom)
             if not flag1:
                 flag1 = True
 
@@ -117,13 +124,15 @@ def compute_novelty(single_tuples, double_tuples, state):
                 double_tuple = frozenset([atom1, atom2])
                 if double_tuple not in double_tuples:
                     double_tuples.add(double_tuple)
+                    for i in double_tuple:
+                        novel_atom_tuples.add(i)
                     if not flag2:
                         flag2 = True
     
     if flag1:
-        return single_tuples, double_tuples, 1
+        return single_tuples, double_tuples, 1, frozenset(novel_atoms)
     elif flag2:
-        return single_tuples, double_tuples, 2
+        return single_tuples, double_tuples, 2, frozenset(novel_atom_tuples)
     else:
-        return single_tuples, double_tuples, float('inf')
+        return single_tuples, double_tuples, float('inf'), None
 

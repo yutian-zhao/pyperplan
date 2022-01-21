@@ -28,6 +28,7 @@ from pyperplan.task import Task
 from pyperplan.search.metrics import SearchMetrics, SearchState
 
 import os
+import builtins
 
 _log = logging.getLogger(__name__)
 
@@ -124,7 +125,7 @@ def astar_search(
     max_search_time=float("inf"),
     heuristic_models = None,
     remove_trivial = False,
-    mode=['solution'],
+    mode=None,
 ):
     """
     Searches for a plan in the given task using A* search. This function will return a list of state value pairs.
@@ -155,19 +156,26 @@ def astar_search(
     heapq.heappush(open, make_open_entry(root, init_h, node_tiebreaker))
     _log.info("Initial h value: %f" % init_h)
 
+    all = mode.get('all', False) if mode else False
+    novel = mode.get('novel', False) if mode else False
+    distance = mode.get('distance', 0) if mode else 0
+    lifted = mode.get('lifted', False) if mode else False
+
     if heuristic_models:
         compare_list = []
-    if 'all' in mode:
+    if all:
         all_pairs = []
-    if 'novel' in mode:
+    if novel:
+        # file = builtins.open(os.path.join(os.getcwd(), "novelty.log"), 'a')
+        # file.write("total number of facts of {}: {}. (n*(n-1)={}).\n".format(
+        #     task.name, len(task.facts), len(task.facts)*(len(task.facts)-1)))
         novel_pairs = []
         num_novelty_1 = 0
         num_novelty_2 = 0
         num_novelty_inf = 0
         single_tuples = set()
         double_tuples = set() # initial state is added to the queue first.
-    remove_trivial = 'nontrivial' in mode
-
+    
     besth = float("inf")
     counter = 0
     expansions = 0
@@ -196,11 +204,11 @@ def astar_search(
 
             if heuristic_models:
                 return compare_list, metrics
-            elif 'all' in mode:
+            elif all:
                 return all_pairs, metrics
-            elif 'novel' in mode:
-                print("total number: ", num_novelty_1+num_novelty_2+num_novelty_inf, 
-                    'novelty 1: ', num_novelty_1, 'novelty 2: ', num_novelty_2, 'novelty inf: ', num_novelty_inf)
+            elif novel:
+                # file.write("total number of states: {}; novelty 1: {}; novelty 2: {}; nonnovel: {}.\n".format(
+                #     num_novelty_1+num_novelty_2+num_novelty_inf, num_novelty_1, num_novelty_2, num_novelty_inf))
                 return novel_pairs, metrics
             else:
                 return [], metrics
@@ -219,16 +227,19 @@ def astar_search(
             expansions += 1
 
             # If asked to find all paths, collect paths when dequeuing.
-            if 'all' in mode:
-                all_pairs+=pop_node.extract_state_value_pairs(remove_trivial=remove_trivial)
-            if 'novel' in mode:
-                single_tuples, double_tuples, novelty = searchspace.compute_novelty(single_tuples, double_tuples, pop_state)
+            if all:
+                all_pairs+=pop_node.extract_state_value_pairs(distance=distance)
+            if novel:
+                # compute novelty when dequing instead of expanding
+                single_tuples, double_tuples, novelty, novel_set = searchspace.compute_novelty(single_tuples, double_tuples, pop_state)
+                pop_node.novelty = novelty
+                pop_node.novel_set = novel_set
                 if novelty==1:
                     num_novelty_1+=1
-                    novel_pairs+=pop_node.extract_state_value_pairs(remove_trivial=remove_trivial)
+                    novel_pairs+=pop_node.extract_state_value_pairs(distance=distance, novel=novel, lifted=lifted)
                 elif novelty==2:
                     num_novelty_2+=1
-                    novel_pairs+=pop_node.extract_state_value_pairs(remove_trivial=remove_trivial)
+                    novel_pairs+=pop_node.extract_state_value_pairs(distance=distance, novel=novel, lifted=lifted)
                 else:
                     num_novelty_inf+=1
 
@@ -251,16 +262,15 @@ def astar_search(
                 )
 
                 if heuristic_models:
-                    print(sol)
                     return compare_list, metrics
-                elif 'all' in mode:
+                elif all:
                     return all_pairs, metrics
-                elif 'novel' in mode:
-                    print("total number: ", num_novelty_1+num_novelty_2+num_novelty_inf, 
-                        'novelty 1: ', num_novelty_1, 'novelty 2: ', num_novelty_2, 'novelty inf: ', num_novelty_inf)
+                elif novel:
+                    # file.write("total number of states: {}; novelty 1: {}; novelty 2: {}; nonnovel: {}.\n".format(
+                    #     num_novelty_1+num_novelty_2+num_novelty_inf, num_novelty_1, num_novelty_2, num_novelty_inf))
                     return novel_pairs, metrics
                 else:
-                    return pop_node.extract_state_value_pairs(remove_trivial=remove_trivial), metrics                
+                    return pop_node.extract_state_value_pairs(distance=distance), metrics                
 
             rplan = None
             if use_relaxed_plan:
