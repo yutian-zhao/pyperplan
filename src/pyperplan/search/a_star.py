@@ -157,7 +157,7 @@ def astar_search(
     _log.info("Initial h value: %f" % init_h)
 
     all = mode.get('all', False) if mode else False
-    novel = mode.get('novel', False) if mode else False
+    novel = mode.get('novel', 0) if mode else 0
     distance = mode.get('distance', 0) if mode else 0
     lifted = mode.get('lifted', False) if mode else False
 

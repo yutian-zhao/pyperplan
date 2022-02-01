@@ -47,7 +47,7 @@ def breadth_first_search(planning_task, max_search_time=float("inf"), mode=None)
     closed = {planning_task.initial_state}
 
     all = mode.get('all', False) if mode else False
-    novel = mode.get('novel', False) if mode else False
+    novel = mode.get('novel', 0) if mode else 0
     distance = mode.get('distance', 0) if mode else 0
     lifted = mode.get('lifted', False) if mode else False
 

@@ -70,7 +70,7 @@ class SearchNode:
         value = 0
         g = self.g
         while self is not None:
-            if ((novel and self.novelty<=1) or not novel) and (value>=distance):
+            if ((novel and self.novelty<=2) or not novel) and (value>=distance):
                     state_value_pairs.append((self.state, goal_state, value))
             value += 1
             self = self.parent
