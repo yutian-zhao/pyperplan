@@ -75,7 +75,7 @@ class SearchNode:
             value += 1
             self = self.parent
         state_value_pairs.reverse()
-        print('{}/{}={}'.format(len(state_value_pairs), g+1, len(state_value_pairs)/(g+1)))
+        # print('{}/{}={}'.format(len(state_value_pairs), g+1, len(state_value_pairs)/(g+1)))
         return state_value_pairs
 
 

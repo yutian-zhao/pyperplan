@@ -17,6 +17,7 @@
 
 from .a_star import astar_search, greedy_best_first_search, weighted_astar_search
 from .breadth_first_search import breadth_first_search
+from .novelty_search import novelty_search
 from .enforced_hillclimbing_search import enforced_hillclimbing_search
 from .iterative_deepening_search import iterative_deepening_search
 from .metrics import SearchState, SearchMetrics
