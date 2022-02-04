@@ -234,10 +234,10 @@ def astar_search(
                 single_tuples, double_tuples, novelty, novel_set = searchspace.compute_novelty(single_tuples, double_tuples, pop_state)
                 pop_node.novelty = novelty
                 pop_node.novel_set = novel_set
-                if novelty==1:
+                if novelty==1 and novelty<=novel:
                     num_novelty_1+=1
                     novel_pairs+=pop_node.extract_state_value_pairs(distance=distance, novel=novel, lifted=lifted)
-                elif novelty==2:
+                elif novelty==2 and novelty<=novel:
                     num_novelty_2+=1
                     novel_pairs+=pop_node.extract_state_value_pairs(distance=distance, novel=novel, lifted=lifted)
                 else:
@@ -268,6 +268,26 @@ def astar_search(
                 elif novel:
                     # file.write("total number of states: {}; novelty 1: {}; novelty 2: {}; nonnovel: {}.\n".format(
                     #     num_novelty_1+num_novelty_2+num_novelty_inf, num_novelty_1, num_novelty_2, num_novelty_inf))
+                    _log.info("Remaining {} states in the queue.".format(len(open)))
+                    remain_novel_nodes = 0
+                    while open:
+                        (_, _, _, node) = heapq.heappop(open)
+                        single_tuples, double_tuples, novelty, novel_set = searchspace.compute_novelty(single_tuples, double_tuples, node.state)
+                        node.novelty = novelty
+                        node.novel_set = novel_set
+                        if novelty==1 and novelty<=novel:
+                            num_novelty_1+=1
+                            remain_novel_nodes+=1
+                            novel_pairs+=node.extract_state_value_pairs(distance=distance, novel=novel, lifted=lifted)
+                        elif novelty==2 and novelty<=novel:
+                            num_novelty_2+=1
+                            remain_novel_nodes+=1
+                            novel_pairs+=node.extract_state_value_pairs(distance=distance, novel=novel, lifted=lifted)
+                        else:
+                            num_novelty_inf+=1
+                    _log.info("Remaining {} novel states in the queue.".format(remain_novel_nodes))
+                    _log.info("Total number of states (threhold {}): {}; novelty 1: {}; novelty 2: {}; nonnovel: {}.\n".format(
+                        novel, num_novelty_1+num_novelty_2+num_novelty_inf, num_novelty_1, num_novelty_2, num_novelty_inf))
                     return novel_pairs, metrics
                 else:
                     return pop_node.extract_state_value_pairs(distance=distance), metrics                

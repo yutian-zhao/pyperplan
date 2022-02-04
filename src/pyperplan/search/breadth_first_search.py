@@ -80,10 +80,10 @@ def breadth_first_search(planning_task, max_search_time=float("inf"), mode=None)
                 return None
 
         iteration += 1
-        logging.debug(
-            "breadth_first_search: Iteration %d, #unexplored=%d"
-            % (iteration, len(queue))
-        )
+        # logging.debug(
+        #     "breadth_first_search: Iteration %d, #unexplored=%d"
+        #     % (iteration, len(queue))
+        # )
         # get the next node to explore
         node = queue.popleft()
 
@@ -94,10 +94,10 @@ def breadth_first_search(planning_task, max_search_time=float("inf"), mode=None)
             single_tuples, double_tuples, novelty, novel_set = searchspace.compute_novelty(single_tuples, double_tuples, pop_state)
             node.novelty = novelty
             node.novel_set = novel_set
-            if novelty==1:
+            if novelty==1 and novelty<=novel:
                 num_novelty_1+=1
                 novel_pairs+=node.extract_state_value_pairs(distance=distance, novel=novel, lifted=lifted)
-            elif novelty==2:
+            elif novelty==2 and novelty<=novel:
                 num_novelty_2+=1
                 novel_pairs+=node.extract_state_value_pairs(distance=distance, novel=novel, lifted=lifted)
             else:

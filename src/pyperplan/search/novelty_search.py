@@ -68,10 +68,10 @@ def novelty_search(planning_task, max_search_time=float("inf"), mode=None):
                 return None
 
         iteration += 1
-        logging.debug(
-            "novelty_search: Iteration %d, #unexplored=%d"
-            % (iteration, len(priority_queue))
-        )
+        # logging.debug(
+        #     "novelty_search: Iteration %d, #unexplored=%d"
+        #     % (iteration, len(priority_queue))
+        # )
         # get the next node to explore
         # node = queue.popleft()
         _, _, node = heapq.heappop(priority_queue)
@@ -127,9 +127,9 @@ def novelty_search(planning_task, max_search_time=float("inf"), mode=None):
 
                 else:
                     num_novelty_inf+=1
-                    node_tiebreaker += 1
-                    succ_node = searchspace.make_child_node(node, operator, successor_state)
-                    heapq.heappush(priority_queue, (float('inf'), node_tiebreaker,succ_node))
+                    # node_tiebreaker += 1
+                    # succ_node = searchspace.make_child_node(node, operator, successor_state)
+                    # heapq.heappush(priority_queue, (float('inf'), node_tiebreaker,succ_node))
                 
                 # remember the successor state
                 closed.add(successor_state)
