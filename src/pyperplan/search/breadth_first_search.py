@@ -50,10 +50,11 @@ def breadth_first_search(planning_task, max_search_time=float("inf"), mode=None)
     novel = mode.get('novel', 0) if mode else 0
     distance = mode.get('distance', 0) if mode else 0
     lifted = mode.get('lifted', False) if mode else False
+    _log.info("Mode: {}".format(mode))
 
     if all:
         all_pairs = []
-    if novel:
+    elif novel:
         # file = open(os.path.join(os.getcwd(), "novelty.log"), 'a')
         # file.write("total number of facts of {}: {}. (n*(n-1)={}).\n".format(planning_task.name, len(planning_task.facts), len(planning_task.facts)*(len(planning_task.facts)-1)))
         novel_pairs = []
@@ -73,8 +74,8 @@ def breadth_first_search(planning_task, max_search_time=float("inf"), mode=None)
             if all:
                 return all_pairs
             elif novel:
-                # file.write("total number of states: {}; novelty 1: {}; novelty 2: {}; nonnovel: {}.\n".format(
-                #     num_novelty_1+num_novelty_2+num_novelty_inf, num_novelty_1, num_novelty_2, num_novelty_inf))
+                logging.info("Number of states: {}; novelty 1: {}; novelty 2: {}; novelty inf: {}.".format( 
+                    (num_novelty_1+num_novelty_2+num_novelty_inf),num_novelty_1, num_novelty_2, num_novelty_inf))
                 return novel_pairs
             else:
                 return None
@@ -87,22 +88,6 @@ def breadth_first_search(planning_task, max_search_time=float("inf"), mode=None)
         # get the next node to explore
         node = queue.popleft()
 
-        if all:
-            all_pairs+=node.extract_state_value_pairs(distance=distance)
-        if novel:
-            pop_state = node.state
-            single_tuples, double_tuples, novelty, novel_set = searchspace.compute_novelty(single_tuples, double_tuples, pop_state)
-            node.novelty = novelty
-            node.novel_set = novel_set
-            if novelty==1 and novelty<=novel:
-                num_novelty_1+=1
-                novel_pairs+=node.extract_state_value_pairs(distance=distance, novel=novel, lifted=lifted)
-            elif novelty==2 and novelty<=novel:
-                num_novelty_2+=1
-                novel_pairs+=node.extract_state_value_pairs(distance=distance, novel=novel, lifted=lifted)
-            else:
-                num_novelty_inf+=1
-
         # exploring the node or if it is a goal node extracting the plan
         if planning_task.goal_reached(node.state):
             logging.info("Goal reached. Start extraction of solution.")
@@ -111,8 +96,8 @@ def breadth_first_search(planning_task, max_search_time=float("inf"), mode=None)
             if all:
                 return all_pairs
             elif novel:
-                # file.write("total number of states: {}; novelty 1: {}; novelty 2: {}; nonnovel: {}.\n".format(
-                #     num_novelty_1+num_novelty_2+num_novelty_inf, num_novelty_1, num_novelty_2, num_novelty_inf))
+                logging.info("Number of states: {}; novelty 1: {}; novelty 2: {}; novelty inf: {}.".format( 
+                    (num_novelty_1+num_novelty_2+num_novelty_inf),num_novelty_1, num_novelty_2, num_novelty_inf))
                 return novel_pairs
             else:
                 return node.extract_state_value_pairs(distance=distance)
@@ -120,6 +105,23 @@ def breadth_first_search(planning_task, max_search_time=float("inf"), mode=None)
         for operator, successor_state in planning_task.get_successor_states(node.state):
             # duplicate detection
             if successor_state not in closed:
+
+                if all:
+                    all_pairs+=node.extract_state_value_pairs(distance=distance)
+                elif novel:
+                    pop_state = node.state
+                    single_tuples, double_tuples, novelty, novel_set = searchspace.compute_novelty(single_tuples, double_tuples, pop_state)
+                    node.novelty = novelty
+                    node.novel_set = novel_set
+                    if novelty==1 and novelty<=novel:
+                        num_novelty_1+=1
+                        novel_pairs+=node.extract_state_value_pairs(distance=distance, novel=novel, lifted=lifted)
+                    elif novelty==2 and novelty<=novel:
+                        num_novelty_2+=1
+                        novel_pairs+=node.extract_state_value_pairs(distance=distance, novel=novel, lifted=lifted)
+                    else:
+                        num_novelty_inf+=1
+
                 queue.append(
                     searchspace.make_child_node(node, operator, successor_state)
                 )
@@ -127,4 +129,12 @@ def breadth_first_search(planning_task, max_search_time=float("inf"), mode=None)
                 closed.add(successor_state)
     logging.info("No operators left. Task unsolvable.")
     logging.info("%d Nodes expanded" % iteration)
-    return None
+    
+    if all:
+        return all_pairs
+    elif novel:
+        logging.info("Number of states: {}; novelty 1: {}; novelty 2: {}; novelty inf: {}.".format( 
+            (num_novelty_1+num_novelty_2+num_novelty_inf),num_novelty_1, num_novelty_2, num_novelty_inf))
+        return novel_pairs
+    else:
+        return None

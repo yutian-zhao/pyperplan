@@ -15,8 +15,10 @@ import os # for debugging
 
 def novelty_search(planning_task, max_search_time=float("inf"), mode=None):
     """
-    Searches for a plan on the given task using breadth first search and
-    duplicate detection.
+    Searches for a plan on the given task using novelty search and
+    duplicate detection (remain for saftety). Default novelty is 2.
+    If pass mode containing 'all', then this function will return all
+    novel pairs (paths between 2 novel states). 
 
     @param planning_task: The planning task to solve.
     @return: The solution as a list of operators or None if the task is
@@ -34,9 +36,10 @@ def novelty_search(planning_task, max_search_time=float("inf"), mode=None):
     closed = {planning_task.initial_state}
 
     all = mode.get('all', False) if mode else False
-    novel = mode.get('novel', 2) if mode else 2
+    novel = mode.get('novel', 2) if mode else 2  # Default novelty is 2.
     distance = mode.get('distance', 0) if mode else 0
     lifted = mode.get('lifted', False) if mode else False
+    _log.info("Mode: {}".format(mode))
 
     # if all:
     #     all_pairs = []
@@ -62,7 +65,8 @@ def novelty_search(planning_task, max_search_time=float("inf"), mode=None):
             # if novel:
                 # file.write("total number of states: {}; novelty 1: {}; novelty 2: {}; nonnovel: {}.\n".format(
                 #     num_novelty_1+num_novelty_2+num_novelty_inf, num_novelty_1, num_novelty_2, num_novelty_inf))
-                print("Number of states: novelty 1: {}; novelty 2: {}; novelty inf: {}.".format(num_novelty_1, num_novelty_2, num_novelty_inf))
+                logging.info("Number of states: {}; novelty 1: {}; novelty 2: {}; novelty inf: {}.".format( 
+                    (num_novelty_1+num_novelty_2+num_novelty_inf),num_novelty_1, num_novelty_2, num_novelty_inf))
                 return novel_pairs
             else:
                 return None
@@ -91,7 +95,8 @@ def novelty_search(planning_task, max_search_time=float("inf"), mode=None):
             # if novel:
                 # file.write("total number of states: {}; novelty 1: {}; novelty 2: {}; nonnovel: {}.\n".format(
                 #     num_novelty_1+num_novelty_2+num_novelty_inf, num_novelty_1, num_novelty_2, num_novelty_inf))
-                print("Number of states: novelty 1: {}; novelty 2: {}; novelty inf: {}.".format(num_novelty_1, num_novelty_2, num_novelty_inf))
+                logging.info("Number of states: {}; novelty 1: {}; novelty 2: {}; novelty inf: {}.".format( 
+                    (num_novelty_1+num_novelty_2+num_novelty_inf),num_novelty_1, num_novelty_2, num_novelty_inf))
                 return novel_pairs
             else:
                 return node.extract_state_value_pairs(distance=distance)

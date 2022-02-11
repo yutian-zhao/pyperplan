@@ -161,11 +161,13 @@ def astar_search(
     distance = mode.get('distance', 0) if mode else 0
     lifted = mode.get('lifted', False) if mode else False
 
+    _log.info("Mode: {}".format(mode))
+
     if heuristic_models:
         compare_list = []
     if all:
         all_pairs = []
-    if novel:
+    elif novel:
         # file = builtins.open(os.path.join(os.getcwd(), "novelty.log"), 'a')
         # file.write("total number of facts of {}: {}. (n*(n-1)={}).\n".format(
         #     task.name, len(task.facts), len(task.facts)*(len(task.facts)-1)))
@@ -207,8 +209,8 @@ def astar_search(
             elif all:
                 return all_pairs, metrics
             elif novel:
-                # file.write("total number of states: {}; novelty 1: {}; novelty 2: {}; nonnovel: {}.\n".format(
-                #     num_novelty_1+num_novelty_2+num_novelty_inf, num_novelty_1, num_novelty_2, num_novelty_inf))
+                logging.info("Number of states: {}; novelty 1: {}; novelty 2: {}; novelty inf: {}.".format( 
+                    (num_novelty_1+num_novelty_2+num_novelty_inf),num_novelty_1, num_novelty_2, num_novelty_inf))
                 return novel_pairs, metrics
             else:
                 return [], metrics
@@ -264,11 +266,12 @@ def astar_search(
                 if heuristic_models:
                     return compare_list, metrics
                 elif all:
+                    _log.info("Returning all pairs.")
                     return all_pairs, metrics
                 elif novel:
                     # file.write("total number of states: {}; novelty 1: {}; novelty 2: {}; nonnovel: {}.\n".format(
                     #     num_novelty_1+num_novelty_2+num_novelty_inf, num_novelty_1, num_novelty_2, num_novelty_inf))
-                    _log.info("Remaining {} states in the queue.".format(len(open)))
+                    _log.info("Remaining {} states in the queue. Collecting novel pairs, lifted is {}.".format(len(open), lifted))
                     remain_novel_nodes = 0
                     while open:
                         (_, _, _, node) = heapq.heappop(open)
@@ -359,4 +362,14 @@ def astar_search(
         search_time=time.perf_counter() - start_time,
         search_state=SearchState.failed,
     )
-    return None, metrics
+
+    if heuristic_models:
+        return compare_list, metrics
+    elif all:
+        return all_pairs, metrics
+    elif novel:
+        logging.info("Number of states: {}; novelty 1: {}; novelty 2: {}; novelty inf: {}.".format( 
+                    (num_novelty_1+num_novelty_2+num_novelty_inf),num_novelty_1, num_novelty_2, num_novelty_inf))
+        return novel_pairs, metrics
+    else:
+        return None, metrics
