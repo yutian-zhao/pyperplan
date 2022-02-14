@@ -209,7 +209,7 @@ def astar_search(
             elif all:
                 return all_pairs, metrics
             elif novel:
-                logging.info("Number of states: {}; novelty 1: {}; novelty 2: {}; novelty inf: {}.".format( 
+                _log.info("Number of states: {}; novelty 1: {}; novelty 2: {}; novelty inf: {}.".format( 
                     (num_novelty_1+num_novelty_2+num_novelty_inf),num_novelty_1, num_novelty_2, num_novelty_inf))
                 return novel_pairs, metrics
             else:
@@ -368,7 +368,7 @@ def astar_search(
     elif all:
         return all_pairs, metrics
     elif novel:
-        logging.info("Number of states: {}; novelty 1: {}; novelty 2: {}; novelty inf: {}.".format( 
+        _log.info("Number of states: {}; novelty 1: {}; novelty 2: {}; novelty inf: {}.".format( 
                     (num_novelty_1+num_novelty_2+num_novelty_inf),num_novelty_1, num_novelty_2, num_novelty_inf))
         return novel_pairs, metrics
     else:

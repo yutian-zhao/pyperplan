@@ -12,6 +12,7 @@ from pyperplan.search import searchspace
 import time
 import os # for debugging
 
+_log = logging.getLogger(__name__)
 
 def novelty_search(planning_task, max_search_time=float("inf"), mode=None):
     """
@@ -58,21 +59,21 @@ def novelty_search(planning_task, max_search_time=float("inf"), mode=None):
     while priority_queue:
         elapsed_time = time.perf_counter() - start_time
         if elapsed_time >= max_search_time:
-            logging.info("Search timed out")
-            logging.info("search_time: %d" % elapsed_time)
+            _log.info("Search timed out")
+            _log.info("search_time: %d" % elapsed_time)
             if all:
             #     return all_pairs
             # if novel:
                 # file.write("total number of states: {}; novelty 1: {}; novelty 2: {}; nonnovel: {}.\n".format(
                 #     num_novelty_1+num_novelty_2+num_novelty_inf, num_novelty_1, num_novelty_2, num_novelty_inf))
-                logging.info("Number of states: {}; novelty 1: {}; novelty 2: {}; novelty inf: {}.".format( 
+                _log.info("Number of states: {}; novelty 1: {}; novelty 2: {}; novelty inf: {}.".format( 
                     (num_novelty_1+num_novelty_2+num_novelty_inf),num_novelty_1, num_novelty_2, num_novelty_inf))
                 return novel_pairs
             else:
                 return None
 
         iteration += 1
-        # logging.debug(
+        # _log.debug(
         #     "novelty_search: Iteration %d, #unexplored=%d"
         #     % (iteration, len(priority_queue))
         # )
@@ -87,15 +88,15 @@ def novelty_search(planning_task, max_search_time=float("inf"), mode=None):
 
         # exploring the node or if it is a goal node extracting the plan
         if planning_task.goal_reached(node.state):
-            logging.info("Goal reached. Start extraction of solution.")
-            logging.info("%d Nodes expanded" % iteration)
-            logging.info("search_time: %d" % (time.perf_counter() - start_time))
+            _log.info("Goal reached. Start extraction of solution.")
+            _log.info("%d Nodes expanded" % iteration)
+            _log.info("search_time: %d" % (time.perf_counter() - start_time))
             if all:
             #     return all_pairs
             # if novel:
                 # file.write("total number of states: {}; novelty 1: {}; novelty 2: {}; nonnovel: {}.\n".format(
                 #     num_novelty_1+num_novelty_2+num_novelty_inf, num_novelty_1, num_novelty_2, num_novelty_inf))
-                logging.info("Number of states: {}; novelty 1: {}; novelty 2: {}; novelty inf: {}.".format( 
+                _log.info("Number of states: {}; novelty 1: {}; novelty 2: {}; novelty inf: {}.".format( 
                     (num_novelty_1+num_novelty_2+num_novelty_inf),num_novelty_1, num_novelty_2, num_novelty_inf))
                 return novel_pairs
             else:
@@ -138,8 +139,8 @@ def novelty_search(planning_task, max_search_time=float("inf"), mode=None):
                 
                 # remember the successor state
                 closed.add(successor_state)
-    logging.info("No operators left. Task unsolvable.")
-    logging.info("%d Nodes expanded" % iteration)
+    _log.info("No operators left. Task unsolvable.")
+    _log.info("%d Nodes expanded" % iteration)
     if all:
         return novel_pairs
     return None
