@@ -158,8 +158,9 @@ def astar_search(
 
     all = mode.get('all', False) if mode else False
     novel = mode.get('novel', 0) if mode else 0
+    complement = mode.get('complement', 0) if mode else 0
     distance = mode.get('distance', 0) if mode else 0
-    lifted = mode.get('lifted', False) if mode else False
+    lifted = mode.get('lifted', 0) if mode else 0
 
     _log.info("Mode: {}".format(mode))
 
@@ -177,7 +178,8 @@ def astar_search(
         num_novelty_inf = 0
         single_tuples = set()
         double_tuples = set() # initial state is added to the queue first.
-    
+        complement_pairs = []
+            
     besth = float("inf")
     counter = 0
     expansions = 0
@@ -211,7 +213,9 @@ def astar_search(
             elif novel:
                 _log.info("Number of states: {}; novelty 1: {}; novelty 2: {}; novelty inf: {}.".format( 
                     (num_novelty_1+num_novelty_2+num_novelty_inf),num_novelty_1, num_novelty_2, num_novelty_inf))
-                return novel_pairs, metrics
+                if complement:
+                    _log.info(f"Number of complement pairs: {len(complement_pairs)}.")
+                return novel_pairs+complement_pairs, metrics
             else:
                 return [], metrics
 
@@ -244,6 +248,9 @@ def astar_search(
                     novel_pairs+=pop_node.extract_state_value_pairs(distance=distance, novel=novel, lifted=lifted)
                 else:
                     num_novelty_inf+=1
+                    if complement > 0:
+                        if len(complement_pairs)<len(novel_pairs)*complement/100:
+                            complement_pairs+=pop_node.extract_state_value_pairs(distance=distance, novel=False, lifted=False)
 
             if task.goal_reached(pop_state):
                 _log.info("Goal reached. Start extraction of solution.")
@@ -288,10 +295,15 @@ def astar_search(
                             novel_pairs+=node.extract_state_value_pairs(distance=distance, novel=novel, lifted=lifted)
                         else:
                             num_novelty_inf+=1
+                            if complement > 0:
+                                if len(complement_pairs)<len(novel_pairs)*complement/100:
+                                    complement_pairs+=pop_node.extract_state_value_pairs(distance=distance, novel=False, lifted=False)
                     _log.info("Remaining {} novel states in the queue.".format(remain_novel_nodes))
                     _log.info("Total number of states (threhold {}): {}; novelty 1: {}; novelty 2: {}; nonnovel: {}.\n".format(
                         novel, num_novelty_1+num_novelty_2+num_novelty_inf, num_novelty_1, num_novelty_2, num_novelty_inf))
-                    return novel_pairs, metrics
+                    if complement:
+                        _log.info(f"Number of complement pairs: {len(complement_pairs)}.")
+                    return novel_pairs+complement_pairs, metrics
                 else:
                     return [(p[0], None, p[2]) for p in pop_node.extract_state_value_pairs(distance=distance)], metrics                
 
@@ -370,6 +382,8 @@ def astar_search(
     elif novel:
         _log.info("Number of states: {}; novelty 1: {}; novelty 2: {}; novelty inf: {}.".format( 
                     (num_novelty_1+num_novelty_2+num_novelty_inf),num_novelty_1, num_novelty_2, num_novelty_inf))
-        return novel_pairs, metrics
+        if complement:
+            _log.info(f"Number of complement pairs: {len(complement_pairs)}.")
+        return novel_pairs+complement_pairs, metrics
     else:
         return None, metrics

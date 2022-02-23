@@ -57,20 +57,34 @@ class SearchNode:
         solution.reverse()
         return solution
 
-    def extract_state_value_pairs(self, distance=0, novel=False, lifted=False):
+    def extract_state_value_pairs(self, distance=0, novel=0, lifted=0):
         """
         Returns the list of actions that were applied from the initial node to
         the goal node.
         """
-        if novel and self.novelty>2:
+        if novel and self.novelty>novel:
             return []
-        
-        goal_state = self.novel_set if lifted and novel else self.state
+
+        if lifted and novel:
+            goal_states = [self.novel_set]
+            lifted_state = set(self.novel_set)
+            lifted -= 1
+            while lifted>0 and len(lifted_state)<len(self.state):
+                for atom in self.state:
+                    if atom not in lifted_state:
+                        lifted_state.add(atom)
+                        goal_states.append(frozenset(lifted_state))
+                        lifted -= 1
+        else:
+            goal_states = [self.state]
+
         state_value_pairs = []
         value = 0
         g = self.g
         while self is not None:
-            if ((novel and self.novelty<=2) or not novel) and (value>=distance):
+            # novel start
+            if ((novel and self.novelty<=novel) or not novel) and (value>=distance):
+                for goal_state in goal_states:
                     state_value_pairs.append((self.state, goal_state, value))
             value += 1
             self = self.parent

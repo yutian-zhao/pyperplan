@@ -49,8 +49,9 @@ def breadth_first_search(planning_task, max_search_time=float("inf"), mode=None)
 
     all = mode.get('all', False) if mode else False
     novel = mode.get('novel', 0) if mode else 0
+    complement = mode.get('complement', 0) if mode else 0
     distance = mode.get('distance', 0) if mode else 0
-    lifted = mode.get('lifted', False) if mode else False
+    lifted = mode.get('lifted', 0) if mode else 0
     _log.info("Mode: {}".format(mode))
 
     if all:
@@ -64,6 +65,7 @@ def breadth_first_search(planning_task, max_search_time=float("inf"), mode=None)
         num_novelty_inf = 0
         single_tuples = set()
         double_tuples = set()
+        complement_pairs = []
 
     start_time = time.perf_counter()
 
@@ -77,7 +79,9 @@ def breadth_first_search(planning_task, max_search_time=float("inf"), mode=None)
             elif novel:
                 _log.info("Number of states: {}; novelty 1: {}; novelty 2: {}; novelty inf: {}.".format( 
                     (num_novelty_1+num_novelty_2+num_novelty_inf),num_novelty_1, num_novelty_2, num_novelty_inf))
-                return novel_pairs
+                if complement:
+                    _log.info(f"Number of complement pairs: {len(complement_pairs)}.")
+                return novel_pairs+complement_pairs
             else:
                 return None
 
@@ -99,7 +103,9 @@ def breadth_first_search(planning_task, max_search_time=float("inf"), mode=None)
             elif novel:
                 _log.info("Number of states: {}; novelty 1: {}; novelty 2: {}; novelty inf: {}.".format( 
                     (num_novelty_1+num_novelty_2+num_novelty_inf),num_novelty_1, num_novelty_2, num_novelty_inf))
-                return novel_pairs
+                if complement:
+                    _log.info(f"Number of complement pairs: {len(complement_pairs)}.")
+                return novel_pairs+complement_pairs
             else:
                 return node.extract_state_value_pairs(distance=distance)
                 
@@ -122,6 +128,9 @@ def breadth_first_search(planning_task, max_search_time=float("inf"), mode=None)
                         novel_pairs+=node.extract_state_value_pairs(distance=distance, novel=novel, lifted=lifted)
                     else:
                         num_novelty_inf+=1
+                        if complement > 0:
+                            if len(complement_pairs)<len(novel_pairs)*complement/100:
+                                complement_pairs+=node.extract_state_value_pairs(distance=distance, novel=False, lifted=False)
 
                 queue.append(
                     searchspace.make_child_node(node, operator, successor_state)
@@ -136,6 +145,8 @@ def breadth_first_search(planning_task, max_search_time=float("inf"), mode=None)
     elif novel:
         _log.info("Number of states: {}; novelty 1: {}; novelty 2: {}; novelty inf: {}.".format( 
             (num_novelty_1+num_novelty_2+num_novelty_inf),num_novelty_1, num_novelty_2, num_novelty_inf))
-        return novel_pairs
+        if complement:
+            _log.info(f"Number of complement pairs: {len(complement_pairs)}.")
+        return novel_pairs+complement_pairs
     else:
         return None
