@@ -293,7 +293,10 @@ def astar_search(
                         novel, num_novelty_1+num_novelty_2+num_novelty_inf, num_novelty_1, num_novelty_2, num_novelty_inf))
                     return novel_pairs, metrics
                 else:
-                    return pop_node.extract_state_value_pairs(distance=distance), metrics                
+                    optimal_pairs = pop_node.extract_state_value_pairs(distance=distance)
+                    for pair in optimal_pairs:
+                        pair[1] = None
+                    return optimal_pairs, metrics                
 
             rplan = None
             if use_relaxed_plan:
