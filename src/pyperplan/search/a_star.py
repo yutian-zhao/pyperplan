@@ -296,7 +296,8 @@ def astar_search(
                         else:
                             num_novelty_inf+=1
                             if complement > 0:
-                                if len(complement_pairs)<len(novel_pairs)*complement/100:
+                                old_succ_g = state_cost.get(node.state, float("inf"))
+                                if node.g < old_succ_g and len(complement_pairs)<len(novel_pairs)*complement/100:
                                     complement_pairs+=pop_node.extract_state_value_pairs(distance=distance, novel=False, lifted=False)
                     _log.info("Remaining {} novel states in the queue.".format(remain_novel_nodes))
                     _log.info("Total number of states (threhold {}): {}; novelty 1: {}; novelty 2: {}; nonnovel: {}.\n".format(
