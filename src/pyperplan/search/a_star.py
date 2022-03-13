@@ -105,7 +105,7 @@ def greedy_best_first_search(task, heuristic, use_relaxed_plan=False,
     return astar_search(
         task, heuristic, ordered_node_greedy_best_first, use_relaxed_plan,
         max_search_time,
-        heuristic_model,
+        heuristic_models,
         mode,
     )
 
