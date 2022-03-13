@@ -90,7 +90,11 @@ def ordered_node_greedy_best_first(node, h, node_tiebreaker):
     return (f, h, node_tiebreaker, node)
 
 
-def greedy_best_first_search(task, heuristic, use_relaxed_plan=False):
+def greedy_best_first_search(task, heuristic, use_relaxed_plan=False,
+    max_search_time=float("inf"),
+    heuristic_models = None,
+    mode=None,
+    ):
     """
     Searches for a plan in the given task using greedy best first search.
 
@@ -99,11 +103,19 @@ def greedy_best_first_search(task, heuristic, use_relaxed_plan=False):
                      from a search node to reach the goal.
     """
     return astar_search(
-        task, heuristic, ordered_node_greedy_best_first, use_relaxed_plan
+        task, heuristic, ordered_node_greedy_best_first, use_relaxed_plan,
+        max_search_time,
+        heuristic_model,
+        mode,
     )
 
 
-def weighted_astar_search(task, heuristic, weight=5, use_relaxed_plan=False):
+def weighted_astar_search(
+    task, heuristic, weight=5, use_relaxed_plan=False,
+    max_search_time=float("inf"),
+    heuristic_models = None,
+    mode=None,
+    ):
     """
     Searches for a plan in the given task using A* search.
 
@@ -113,7 +125,10 @@ def weighted_astar_search(task, heuristic, weight=5, use_relaxed_plan=False):
     @param weight A weight to be applied to the heuristics value for each node.
     """
     return astar_search(
-        task, heuristic, ordered_node_weighted_astar(weight), use_relaxed_plan
+        task, heuristic, ordered_node_weighted_astar(weight), use_relaxed_plan,
+        max_search_time,
+        heuristic_models,
+        mode,
     )
 
 
@@ -124,7 +139,6 @@ def astar_search(
     use_relaxed_plan=False,
     max_search_time=float("inf"),
     heuristic_models = None,
-    remove_trivial = False,
     mode=None,
 ):
     """
