@@ -28,7 +28,7 @@ class SearchNode:
     the node and the path length in the count of applied operators.
     """
 
-    def __init__(self, state, parent, action, g, novel_parent=None):
+    def __init__(self, state, parent, action, g):
         """
         Construct a search node
 
@@ -91,6 +91,22 @@ class SearchNode:
         state_value_pairs.reverse()
         # print('{}/{}={}'.format(len(state_value_pairs), g+1, len(state_value_pairs)/(g+1)))
         return state_value_pairs
+
+class MCTSNode(SearchNode):
+    def __init__(self, state, parent, action, g, ):
+        super().__init__(state, parent, action, g)
+        self.children = []
+        self.num_visits = 0
+        self.h = None
+        self.v = float('inf')
+        self.tiebreaker = None
+
+def make_mcts_root_node(initial_state):
+    return MCTSNode(initial_state, None, None, 0)
+
+def make_mcts_child_node(parent_node, action, state):
+    return MCTSNode(state, parent_node, action, parent_node.g + 1)
+
 
 
 def make_root_node(initial_state):
