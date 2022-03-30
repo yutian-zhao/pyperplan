@@ -19,7 +19,9 @@ _log = logging.getLogger(__name__)
 def selection(root, selection_function, parameter):
     current = root
     while len(current.children):
-        current = max(current.children, key=lambda x: (ucb1(x, parameter), x.h, x.tiebreaker))
+        # _log.info("current is {}".format(current.tiebreaker))
+        current = max(current.children, key=lambda x: (ucb1(x, parameter), -x.h, -x.tiebreaker))
+        # _log.info("the following's ucb1 is {}".format(ucb1(current, parameter)))
         # current = current.children[np.argmax([selection_function(child, parameter) for child in current.children])]
     return current
 
@@ -33,7 +35,7 @@ def simulation(task, node):
 # parameter and v value.
 def ucb1(mcts_node, parameter):
     if mcts_node.parent:
-        # initialize v value and num_visits
+        # initialize v value -> num_visits
         # mcts_node.parent.num_visits and num_visits
         if mcts_node.num_visits:
             return parameter*np.sqrt(np.log(mcts_node.parent.num_visits)/mcts_node.num_visits)-mcts_node.v
@@ -89,9 +91,11 @@ def monte_carlo_tree_search(
         if leaf.num_visits:
             expansions += 1
             # _log.info("Expanding leaf {}".format(leaf.tiebreaker))
+            new_children = 0
             for op, succ_state in task.get_successor_states(leaf.state):
                 # initialize child node
                 if succ_state not in closed:
+                    new_children += 1
                     closed.add(succ_state)
                     nodes_count += 1
                     child = searchspace.make_mcts_child_node(leaf, op, succ_state)
@@ -117,18 +121,24 @@ def monte_carlo_tree_search(
                         search_time=time.perf_counter() - start_time,
                         search_state=SearchState.success,
                     )
-
-            leaf = selection(leaf, selection_function, parameter)
-
-        # simulation
-        leaf.v = simulation(task, leaf)
-        # _log.info("Simulate leaf {}".format(leaf.tiebreaker))
+            if not new_children:
+                _log.info("Found Deadend: {}".format(leaf.tiebreaker))
+                _log.info("Siblings are: {}".format([n.tiebreaker for n in leaf.parent.children]))
+                leaf.v = float('inf')
+                # leaf.h = float('inf')
+            else:
+                leaf = selection(leaf, selection_function, parameter)
+                # simulation
+                leaf.v = simulation(task, leaf)
+                # _log.info("Simulate leaf {}".format(leaf.tiebreaker))
+        else:
+            leaf.v = simulation(task, leaf)
 
         # backpropagation
         leaf.num_visits += 1
         if leaf.parent:
             backup_node = leaf.parent
-            if min([child.v for child in leaf.parent.children])<=leaf.v:
+            if min([child.v for child in leaf.parent.children if child.v is not None])<leaf.v:
                 while backup_node:
                     backup_node.num_visits += 1
                     backup_node = backup_node.parent
@@ -138,7 +148,7 @@ def monte_carlo_tree_search(
                 while backup_node:
                     backup_node.num_visits += 1
                     # currently use min; mean is also triable.
-                    backup_node.v = 1+min([child.v for child in backup_node.children])
+                    backup_node.v = 1+min([child.v for child in backup_node.children if child.v is not None])
                     backup_node = backup_node.parent
 
     # what to do when task is unsolvable

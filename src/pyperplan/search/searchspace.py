@@ -98,7 +98,7 @@ class MCTSNode(SearchNode):
         self.children = []
         self.num_visits = 0
         self.h = None
-        self.v = float('inf')
+        self.v = None
         self.tiebreaker = None
 
 def make_mcts_root_node(initial_state):
