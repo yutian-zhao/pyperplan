@@ -19,3 +19,5 @@ class SearchMetrics(NamedTuple):
     heuristic_val_for_initial_state: float
     search_time: float
     search_state: SearchState
+    # overkill
+    checkpoint: str

@@ -29,6 +29,12 @@ from pyperplan.search.metrics import SearchMetrics, SearchState
 
 import os
 import builtins
+from datetime import datetime
+import pickle
+from collections import Counter
+import numpy as np
+
+# from strips_hgn.planning import STRIPSProblem
 
 _log = logging.getLogger(__name__)
 
@@ -94,6 +100,7 @@ def greedy_best_first_search(task, heuristic, use_relaxed_plan=False,
     max_search_time=float("inf"),
     heuristic_models = None,
     mode=None,
+    **kwargs,
     ):
     """
     Searches for a plan in the given task using greedy best first search.
@@ -107,6 +114,7 @@ def greedy_best_first_search(task, heuristic, use_relaxed_plan=False,
         max_search_time,
         heuristic_models,
         mode,
+        **kwargs,
     )
 
 
@@ -115,6 +123,7 @@ def weighted_astar_search(
     max_search_time=float("inf"),
     heuristic_models = None,
     mode=None,
+    **kwargs,
     ):
     """
     Searches for a plan in the given task using A* search.
@@ -129,8 +138,44 @@ def weighted_astar_search(
         max_search_time,
         heuristic_models,
         mode,
+        **kwargs,
     )
 
+def retrain(checkpoint, problem, data_path):
+    # model = STRIPSHGN.load_from_checkpoint(checkpoint)
+    # model.train()
+    # model._prediction_mode = False
+    from train import train_wrapper
+    from default_args import get_training_args, DomainAndProblemConfiguration
+    from strips_hgn.models.strips_hgn import STRIPSHGN
+
+    _CONFIGURATION = DomainAndProblemConfiguration(
+        base_directory="",
+        domain_pddl=problem.domain_pddl,
+        problem_pddls=[problem.problem_pddl]
+    )
+
+    experiment_type = os.path.basename(os.path.dirname(checkpoint)).split('-strips')[0]
+    _log.info(f"Retraining: {experiment_type}")
+    
+    model_path = train_wrapper(
+        args=get_training_args(
+            configurations=[_CONFIGURATION],
+            max_training_time=2*60,
+            num_folds=2,
+            # batch_size=32,
+            # learning_rate=0.005,
+        ),
+        experiment_type=experiment_type,
+        mode=None,
+        use_logging=False,
+        strips_model_path = checkpoint,
+        data_path = data_path
+    )
+    model = STRIPSHGN.load_from_checkpoint(model_path)
+    model.eval()
+    model.setup_prediction_mode()
+    return model, model_path
 
 def astar_search(
     task,
@@ -140,6 +185,7 @@ def astar_search(
     max_search_time=float("inf"),
     heuristic_models = None,
     mode=None,
+    **kwargs,
 ):
     """
     Searches for a plan in the given task using A* search. This function will return a list of state value pairs.
@@ -161,20 +207,36 @@ def astar_search(
                 'novel' collects ((start, novel state), value) pairs.
                 'nontrivial' whether remove pairs with value less than 2.
     """
+    ## initialize
+    # open list and closed list
     open = []
     state_cost = {task.initial_state: 0}
     node_tiebreaker = 0
 
+    # initialize with root
     root = searchspace.make_root_node(task.initial_state)
     init_h = heuristic(root)
+    node_h = {task.initial_state:init_h}
     heapq.heappush(open, make_open_entry(root, init_h, node_tiebreaker))
     _log.info("Initial h value: %f" % init_h)
 
+    # get kwargs
     all = mode.get('all', False) if mode else False
     novel = mode.get('novel', 0) if mode else 0
     complement = mode.get('complement', 0) if mode else 0
     distance = mode.get('distance', 0) if mode else 0
     lifted = mode.get('lifted', 0) if mode else 0
+    checkpoint = kwargs.get('checkpoint', None)
+    problem = kwargs.get('problem', None)
+    if checkpoint:
+        from strips_hgn.training_data import StateValuePair
+        retrain_interval = kwargs.get('retrain_interval', 2*60)
+        experiment_dir = kwargs.get('experiment_dir', os.path.dirname(checkpoint))
+        buffer = []
+        data_amount = kwargs.get('data_amount', 600)
+        resume_time = time.perf_counter()
+        retrain_count = kwargs.get('retrain_count', 0)
+        h_counter = Counter()
 
     _log.info("Mode: {}".format(mode))
 
@@ -195,8 +257,8 @@ def astar_search(
         complement_pairs = []
             
     besth = float("inf")
-    counter = 0
-    expansions = 0
+    counter = 0 # nodes dequeued
+    expansions = 0 # nodes expanded
 
     # Number of heuristic calls, include the initial call for root note
     heuristic_calls = 1
@@ -205,7 +267,7 @@ def astar_search(
     start_time = time.perf_counter()
 
     while open:
-        # Check whether max search time exceeded
+        ## Check whether max search time exceeded
         elapsed_time = time.perf_counter() - start_time
         if elapsed_time >= max_search_time:
             metrics = SearchMetrics(
@@ -215,6 +277,7 @@ def astar_search(
                 heuristic_val_for_initial_state=init_h,
                 search_time=elapsed_time,
                 search_state=SearchState.timed_out,
+                checkpoint = checkpoint,
             )
             _log.warning("Search timed out")
             _log.info("%d Nodes expanded" % expansions)
@@ -232,14 +295,60 @@ def astar_search(
                 return novel_pairs+complement_pairs, metrics
             else:
                 return [], metrics
+        
+        ## pop buffer and invoke retraining after the time of 'retrain interval' passed
+        if checkpoint and time.perf_counter() - resume_time >= retrain_interval and len(buffer)>=data_amount:
+            problem_to_state_value_pairs = {problem: []}
+            _log.info(f"Uniform sampling {data_amount} pairs among {len(buffer)} pairs in the buffer.")
+            probs = np.array([1/h_counter[pair.value] for pair in buffer])
+            probs = probs/np.sum(probs)
+            state_value_pairs = np.random.choice(buffer, size=data_amount, replace=False, p=probs).tolist()
+            for state_value_pair in state_value_pairs:
+                problem_to_state_value_pairs[problem].append(state_value_pair)
+            # _log.info(f"Saving first {data_amount} pairs among {len(buffer)} pairs in the buffer.")
+            # for i in range(data_amount):
+            #     _, state_value_pair = heapq.heappop(buffer)
+            #     problem_to_state_value_pairs[problem].append(StateValuePair(state=state_value_pair[0], target=state_value_pair[1], value=state_value_pair[2]))
+            os.path.dirname(checkpoint)
+            data_path = os.path.join(experiment_dir, 'training_data-'+datetime.now().strftime("%m-%d-%H-%M-%S")+'.pkl')
+            pickle.dump(problem_to_state_value_pairs, builtins.open(data_path, "wb" ))
+            _log.info(f"Saved data at {data_path}.")
+            _log.info(f"Start retraining {retrain_count}.")
+            model, model_path = retrain(checkpoint, problem, data_path)
+            _log.info(f"Finish retraining, checkpoint is located at {model_path}.")
+            # replace model
+            checkpoint = model_path
+            kwargs['checkpoint'] = checkpoint
+            heuristic.model = model
+            resume_time = time.perf_counter()
+            retrain_count += 1
+            kwargs['retrain_count'] = retrain_count
+            os.remove(data_path)
+            # restart
+            _log.info("Restart search with retrained model.")
+            _log.info("%d Nodes expanded" % expansions)
+            _log.info("%d times heuristic called" % heuristic_calls)
+            return greedy_best_first_search(
+                task=task,
+                heuristic=heuristic,
+                # make_open_entry=make_open_entry,
+                use_relaxed_plan=use_relaxed_plan,
+                max_search_time=max_search_time-(time.perf_counter() - start_time),
+                heuristic_models = heuristic_models,
+                mode=mode,
+                **kwargs,
+            )
 
+        ## pop node
         (f, h, _tie, pop_node) = heapq.heappop(open)
         if h < besth:
             besth = h
-            _log.debug("Found new best h: %d after %d expansions" % (besth, counter))
+            # debug -> info
+            _log.info(f"Found new best h: {besth} after {counter} expansions")
 
         pop_state = pop_node.state
 
+        ## dequeue node
         # Only expand the node if its associated cost (g value) is the lowest
         # cost known for this state. Otherwise we already found a cheaper
         # path after creating this node and hence can disregard it.
@@ -250,7 +359,7 @@ def astar_search(
             if all:
                 all_pairs+=pop_node.extract_state_value_pairs(distance=distance)
             if novel:
-                # compute novelty when dequing instead of expanding
+                # compute novelty when dequeuing instead of expanding
                 single_tuples, double_tuples, novelty, novel_set = searchspace.compute_novelty(single_tuples, double_tuples, pop_state)
                 pop_node.novelty = novelty
                 pop_node.novel_set = novel_set
@@ -265,7 +374,21 @@ def astar_search(
                     if complement > 0:
                         if len(complement_pairs)<len(novel_pairs)*complement/100:
                             complement_pairs+=pop_node.extract_state_value_pairs(distance=distance, novel=False, lifted=False)
+            
+            # data selection
+            if checkpoint:
+                for pair in pop_node.extract_state_value_pairs(distance=distance, novel=novel, lifted=lifted):
+                    # criterion 1: -|target.g - |target.h-source.h|| 
+                    # heapq.heappush(buffer, (-abs(pair[-1]- abs(node_h[pair[0]]-node_h[pair[1]])), pair))
+                    # criterion 2: -|target.g - |h(source, target)||
+                    # heapq.heappush(buffer, (-abs(pair[-1]- abs(heuristic(pair[0], pair[1]))), pair))
+                    # criterion 3: -|target.g - |target.h-source.h||/target.g 
+                    # heapq.heappush(buffer, (-abs(pair[-1]- abs(node_h[pair[0]]-node_h[pair[1]]))/(pair[-1]+1), pair))
+                    # criterion 4: uniform sampling based on h
+                    buffer.append(StateValuePair(state=pair[0], target=pair[1], value=pair[2]))
+                    h_counter[pair[-1]] += 1
 
+            ## check node
             if task.goal_reached(pop_state):
                 _log.info("Goal reached. Start extraction of solution.")
                 _log.info("%d Nodes expanded" % expansions)
@@ -282,6 +405,7 @@ def astar_search(
                     heuristic_val_for_initial_state=init_h,
                     search_time=time.perf_counter() - start_time,
                     search_state=SearchState.success,
+                    checkpoint = checkpoint,
                 )
 
                 if heuristic_models:
@@ -333,6 +457,8 @@ def astar_search(
                 states_and_hs = [[] for i in range(len(heuristic_models)+2)]
                 states_and_hs.append(pop_node.action.name if pop_node.action else '') # The action which produced the state.
 
+            ## expand and push node 
+            # siblings_h = []
             for op, succ_state in task.get_successor_states(pop_state):
                 if use_relaxed_plan:
                     if rplan and not op.name in rplan:
@@ -345,12 +471,14 @@ def astar_search(
                         continue
                     else:
                         _log.debug("keeping operator %s" % op.name)
-
+                
                 succ_node = searchspace.make_child_node(pop_node, op, succ_state)
 
                 old_succ_g = state_cost.get(succ_state, float("inf"))
                 if succ_node.g < old_succ_g:
                     h = heuristic(succ_node)
+                    node_h[succ_state] = h
+                    # siblings_h.append(h)
                     heuristic_calls += 1
 
                     if h == float("inf"):
@@ -368,9 +496,11 @@ def astar_search(
                         # checkpoints = [os.path.join("../results/", path, "model-best.ckpt") for path in heuristics] 
                         # heuristic_models = [model_to_heuristics(checkpoint, problem)for checkpoint in checkpoints]
                         states_and_hs[0].append(op.name)
+                        # NOTE: h+g; g if use GBFS
                         states_and_hs[1].append(h+succ_node.g)
                         for idx, heuristic_model in enumerate(heuristic_models):
                             states_and_hs[idx+2].append(heuristic_model(succ_node)+succ_node.g)
+            # _log.info(f"node h {node_h[pop_state]} siblings h {siblings_h}.")
 
             if heuristic_models:
                 # if len(states_and_hs[0])!=0:
@@ -388,6 +518,7 @@ def astar_search(
         heuristic_val_for_initial_state=init_h,
         search_time=time.perf_counter() - start_time,
         search_state=SearchState.failed,
+        checkpoint = checkpoint,
     )
 
     if heuristic_models:
